@@ -1,4 +1,4 @@
-Create Table acea_water_bronze.acea_water_bronze (
+Create Table acea_water_bronze.aquifer_auser (
     Date VARCHAR(),
     Rainfall_Gallicano VARCHAR(),
     Rainfall_Pontetetto VARCHAR(),
