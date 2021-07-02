@@ -12,12 +12,15 @@
 import databricks.koalas as ks
 import numpy as np
 import plotly.express as px
+import pandas as pd
+from pyspark.sql.functions import log
+from databricks.koalas.config import set_option, reset_option
 
 # COMMAND ----------
 
 train_path = '/mnt/kaggle/competitions/optiver_realized_volatility_prediction/Raw/train/'
 
-book_train_path = '/mnt/kaggle/competitions/optiver_realized_volatility_prediction/Raw/book_train/'
+book_train_path = '/mnt/kaggle/competitions/optiver_realized_volatility_prediction/Raw/book_train/stock_id=0'
 
 trade_train_path = '/mnt/kaggle/competitions/optiver_realized_volatility_prediction/Raw/trade_train/stock_id=0'
 
@@ -38,6 +41,9 @@ train.head()
 
 book_example = ks.read_delta(book_train_path)
 trade_example =  ks.read_delta(trade_train_path)
+
+# COMMAND ----------
+
 stock_id = '0'
 book_example = book_example[book_example['time_id']==5]
 book_example.loc[:,'stock_id'] = stock_id
@@ -51,7 +57,7 @@ trade_example.loc[:,'stock_id'] = stock_id
 
 # COMMAND ----------
 
-book_example.display()
+book_example.head()
 
 # COMMAND ----------
 
@@ -60,12 +66,12 @@ book_example.display()
 
 # COMMAND ----------
 
-trade_example.display()
+trade_example.head()
 
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC Realized volatility calculation in python
+# MAGIC ### Realized volatility calculation in python
 
 # COMMAND ----------
 
@@ -83,12 +89,60 @@ book_example['wap'] = (book_example['bid_price1'] * book_example['ask_size1'] +
 # COMMAND ----------
 
 # MAGIC %md
-# MAGIC The WAP of the stock is plotted below
+# MAGIC ### The WAP of the stock is plotted below
 
 # COMMAND ----------
 
 fig = px.line(book_example.to_pandas(), x="seconds_in_bucket", y="wap", title='WAP of stock_id_0, time_id_5')
 fig.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC To compute the log return, we can simply take the logarithm of the ratio between two consecutive WAP. The first row will have an empty return as the previous book update is unknown, therefore the empty return data point will be dropped.
+
+# COMMAND ----------
+
+set_option("compute.ops_on_diff_frames", True)
+
+# COMMAND ----------
+
+book_example['log_return'] = book_example['wap'].spark.transform(lambda scol: log(scol)).diff()
+
+# COMMAND ----------
+
+reset_option("compute.ops_on_diff_frames")
+
+# COMMAND ----------
+
+book_example = book_example[~book_example['log_return'].isnull()]
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### Let's plot the tick-to-tick return of this instrument over this time bucket
+
+# COMMAND ----------
+
+fig = px.line(book_example.to_pandas(), x="seconds_in_bucket", y="log_return", title='Log return of stock_id_0, time_id_5')
+fig.show()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC The realized vol of stock 0 in this feature bucket, will be:
+
+# COMMAND ----------
+
+realized_vol = book_example['log_return'].spark.transform(lambda scol: scol**2).sum()**(1/2)
+
+# COMMAND ----------
+
+realized_vol = (book_example['log_return']**2).sum()**(1/2)
+
+# COMMAND ----------
+
+print(f'Realized volatility for stock_id 0 on time_id 5 is {realized_vol}')
 
 # COMMAND ----------
 
