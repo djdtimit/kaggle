@@ -13,7 +13,7 @@ import databricks.koalas as ks
 import numpy as np
 import plotly.express as px
 import pandas as pd
-from pyspark.sql.functions import log
+from pyspark.sql.functions import log, lit
 from databricks.koalas.config import set_option, reset_option
 
 # COMMAND ----------
@@ -134,7 +134,7 @@ fig.show()
 
 # COMMAND ----------
 
-realized_vol = book_example['log_return'].spark.transform(lambda scol: scol**2).sum()**(1/2)
+# realized_vol = book_example['log_return'].spark.transform(lambda scol: scol**2).sum()**(1/2)
 
 # COMMAND ----------
 
@@ -143,6 +143,133 @@ realized_vol = (book_example['log_return']**2).sum()**(1/2)
 # COMMAND ----------
 
 print(f'Realized volatility for stock_id 0 on time_id 5 is {realized_vol}')
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC # Naive prediction: using past realized volatility as target
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC A commonly known fact about volatility is that it tends to be autocorrelated. We can use this property to implement a naive model that just "predicts" realized volatility by using whatever the realized volatility was in the initial 10 minutes.
+
+# COMMAND ----------
+
+from sklearn.metrics import r2_score
+from pyspark.sql.functions import col, lag
+from pyspark.sql.window import Window
+
+# COMMAND ----------
+
+train_path = '/mnt/kaggle/competitions/optiver_realized_volatility_prediction/Raw/train/'
+
+book_train_path = '/mnt/kaggle/competitions/optiver_realized_volatility_prediction/Raw/book_train'
+trade_train_path = '/mnt/kaggle/competitions/optiver_realized_volatility_prediction/Raw/trade_train'
+
+# COMMAND ----------
+
+df_book_data.display()
+
+# COMMAND ----------
+
+df_book_data = ks.read_delta(book_train_path)
+df_book_data['wap'] =(df_book_data['bid_price1'] * df_book_data['ask_size1']+df_book_data['ask_price1'] * df_book_data['bid_size1'])  / (df_book_data['bid_size1']+ df_book_data['ask_size1'])
+
+# COMMAND ----------
+
+df_book_data['log_wap'] = df_book_data['wap'].spark.transform(lambda scol: log(scol))
+#.diff()
+
+# COMMAND ----------
+
+set_option("compute.ops_on_diff_frames", True)
+
+# COMMAND ----------
+
+df_book_data['log_return'] = df_book_data.groupby('stock_id')['log_wap'].diff()
+
+# COMMAND ----------
+
+reset_option("compute.ops_on_diff_frames")
+
+# COMMAND ----------
+
+# df_book_data.head()
+
+# COMMAND ----------
+
+df_book_data = df_book_data[~df_book_data['log_return'].isnull()]
+
+# COMMAND ----------
+
+df_book_data['log_return_squared'] = df_book_data['log_return']**2
+
+# COMMAND ----------
+
+df_realized_vol_per_stock = df_book_data.groupby('stock_id')['log_return_squared'].sum()
+
+# COMMAND ----------
+
+df_realized_vol_per_stock['log_return'] = df_realized_vol_per_stock['log_return_squared']**(1/2)
+
+# COMMAND ----------
+
+df_realized_vol_per_stock['realized_vol'] = df_book_data.groupby('Stock_id')(['log_return']**2).sum()**(1/2)
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC ### in PySpark
+
+# COMMAND ----------
+
+windowSpec  = Window.partitionBy("stock_id").orderBy("time_id")
+
+# COMMAND ----------
+
+df_book_data = spark.read.format('delta').load(book_train_path)
+df_book_data = (df_book_data
+                .withColumn('wap', (col('bid_price1') * col('ask_size1') + col('ask_price1') * col('bid_size1')) / (col('bid_size1') + col('ask_size1')) )
+                .withColumn('log_wap', log(col('wap')))
+                .withColumn("log_return",lag("log_wap",1).over(windowSpec))
+                .withColumn('log_return_squared', col('log_return')**2)
+               )
+
+df_book_data = df_book_data.where(col('log_return').isNotNull())
+
+
+# COMMAND ----------
+
+df_realized_vol_per_stock = df_book_data.groupBy(['stock_id', 'time_id']).sum('log_return_squared')
+
+# COMMAND ----------
+
+df_realized_vol_per_stock = (df_realized_vol_per_stock
+                             .withColumn('realized_volatility', col('sum(log_return_squared)')**(1/2)))
+
+# COMMAND ----------
+
+df_past_realized_train = (df_realized_vol_per_stock.withColumnRenamed('realized_volatility', 'pred')
+                          .select('stock_id', 'time_id', 'pred'))
+
+# COMMAND ----------
+
+train = spark.read.format('delta').load(train_path)
+
+# COMMAND ----------
+
+df_joined = (df_past_realized_train.join(train, on = ['stock_id', 'time_id'], how = 'left')).toPandas()
+df_joined['target'] = df_joined['target'].astype('float')
+
+# COMMAND ----------
+
+from sklearn.metrics import r2_score
+def rmspe(y_true, y_pred):
+    return  (np.sqrt(np.mean(np.square((y_true - y_pred) / y_true))))
+R2 = round(r2_score(y_true = df_joined['target'], y_pred = df_joined['pred']),3)
+RMSPE = round(rmspe(y_true = df_joined['target'], y_pred = df_joined['pred']),3)
+print(f'Performance of the naive prediction: R2 score: {R2}, RMSPE: {RMSPE}')
 
 # COMMAND ----------
 
