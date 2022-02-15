@@ -1,4 +1,4 @@
-from pyspark.sql.functions import lit, input_file_name()
+from pyspark.sql.functions import lit, input_file_name
 from datetime import datetime
 
 def add_lineage(df):
