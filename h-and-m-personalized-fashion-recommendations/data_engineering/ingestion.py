@@ -16,16 +16,4 @@ add_lineage(spark.read.csv(ingestion_path() + 'transactions/', header = True)).w
 
 # COMMAND ----------
 
-add_lineage(spark.read.format("image").load(ingestion_path() + 'images/*/').write.save(raw_path() + 'images/')
-
-# COMMAND ----------
-
-# df = spark.read.format("image").load(ingestion_path() + 'images/*/')
-
-# COMMAND ----------
-
-# df.display()
-
-# COMMAND ----------
-
-
+add_lineage(spark.read.format("image").load(ingestion_path() + 'images/*/')).write.save(raw_path() + 'images/')
