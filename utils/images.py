@@ -1,6 +1,8 @@
 import io
 from PIL import Image
 import pandas as pd
+from pyspark.sql.functions import pandas_udf
+
 
 def extract_size(content):
   """Extract image size from its raw content."""
