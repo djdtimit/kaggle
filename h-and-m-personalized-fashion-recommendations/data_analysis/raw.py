@@ -85,6 +85,11 @@ df_articles.info()
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC nulls in detail_desc
+
+# COMMAND ----------
+
 display(df_articles)
 
 # COMMAND ----------
@@ -105,6 +110,11 @@ df_customers['_loadDate'] = df_customers['_loadDate'].astype('datetime64')
 # COMMAND ----------
 
 df_customers.info()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC nulls in many columns
 
 # COMMAND ----------
 
