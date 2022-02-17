@@ -40,8 +40,25 @@ import pyspark.pandas as ps
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC Problem: many small files with 10 mb in size
+
+# COMMAND ----------
+
+spark.sql(f"OPTIMIZE delta.`{raw_path() + 'images/'}`")
+
+# COMMAND ----------
+
 df_images = ps.read_delta(raw_path() + 'images/')
 df_images.head()
+
+# COMMAND ----------
+
+df_images.info()
+
+# COMMAND ----------
+
+display(df_images)
 
 # COMMAND ----------
 
