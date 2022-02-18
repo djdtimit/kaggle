@@ -1,13 +1,9 @@
-# Databricks notebook source
-from utils.paths import *
+-- Databricks notebook source
+CREATE SCHEMA IF NOT EXISTS
 
-# COMMAND ----------
+-- COMMAND ----------
 
-spark.sql("""CREATE SCHEMA IF NOT EXISTS hmraw""")
-
-# COMMAND ----------
-
-spark.sql(f"""CREATE TABLE IF NOT EXISTS  hmraw.articles (
+CREATE TABLE IF NOT EXISTS  hmraw.articles (
 article_id                     STRING    
 , product_code                   STRING    
 , prod_name                      STRING    
@@ -37,11 +33,11 @@ article_id                     STRING
 , _source                        STRING    
 )
 USING DELTA
-LOCATION '{raw_path() + 'articles/'}'""")
+LOCATION '/mnt/playground/raw/h-and-m-personalized-fashion-recommendations/articles/'
 
-# COMMAND ----------
+-- COMMAND ----------
 
-spark.sql(f"""CREATE TABLE IF NOT EXISTS hmraw.customers (
+CREATE TABLE IF NOT EXISTS hmraw.customers (
 customer_id             STRING
 ,FN                     STRING 
 ,Active                 STRING 
@@ -54,11 +50,11 @@ customer_id             STRING
 )
 USING
 DELTA
-LOCATION '{raw_path() + 'customers/'}'""")
+LOCATION '/mnt/playground/raw/h-and-m-personalized-fashion-recommendations/customers/'
 
-# COMMAND ----------
+-- COMMAND ----------
 
-spark.sql(f"""CREATE TABLE IF NOT EXISTS hmraw.transactions (
+CREATE TABLE IF NOT EXISTS hmraw.transactions (
 t_dat              STRING
 ,customer_id        STRING    
 ,article_id         STRING    
@@ -68,14 +64,15 @@ t_dat              STRING
 ,_source            STRING 
 )
 USING DELTA
-LOCATION '{raw_path() + 'transactions/'}'""")
+LOCATION '/mnt/playground/raw/h-and-m-personalized-fashion-recommendations/transactions/'
 
-# COMMAND ----------
+-- COMMAND ----------
 
-spark.sql(f"""CREATE TABLE IF NOT EXISTS hmraw.images 
+CREATE TABLE IF NOT EXISTS hmraw.images 
+--(
+--path string
+--,size struct<width:int,height:int>
+--,content binary
+--)
 USING DELTA
-LOCATION '{raw_path() + 'images/'}'""")
-
-# COMMAND ----------
-
-spark.sql(f"""VACUUM delta.`{raw_path() + 'images/'}` RETAIN 24 HOURS""")
+LOCATION '/mnt/playground/raw/h-and-m-personalized-fashion-recommendations/images/'
