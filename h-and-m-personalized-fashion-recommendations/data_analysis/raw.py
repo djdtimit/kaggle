@@ -40,8 +40,25 @@ import pyspark.pandas as ps
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC Problem: many small files with 10 mb in size
+
+# COMMAND ----------
+
+spark.sql(f"OPTIMIZE delta.`{raw_path() + 'images/'}`")
+
+# COMMAND ----------
+
 df_images = ps.read_delta(raw_path() + 'images/')
 df_images.head()
+
+# COMMAND ----------
+
+df_images.info()
+
+# COMMAND ----------
+
+display(df_images)
 
 # COMMAND ----------
 
@@ -68,6 +85,11 @@ df_articles.info()
 
 # COMMAND ----------
 
+# MAGIC %md
+# MAGIC nulls in detail_desc
+
+# COMMAND ----------
+
 display(df_articles)
 
 # COMMAND ----------
@@ -88,6 +110,11 @@ df_customers['_loadDate'] = df_customers['_loadDate'].astype('datetime64')
 # COMMAND ----------
 
 df_customers.info()
+
+# COMMAND ----------
+
+# MAGIC %md
+# MAGIC nulls in many columns
 
 # COMMAND ----------
 
